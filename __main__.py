@@ -59,11 +59,10 @@ def Treino(a : int ,b : int):
 					if real != mode:
 						erro +=1
 					# except:
-						#    multi=statistics.multimode(supos)
-					
+						#    multi=statistics.multimode(supos)			
 		#MEDIDA DE ACURACIA DO PAR
-		Acu.append(round(float((len(comp_list) - erro)/len(comp_list)), 4))
-	Pares.append(par(comp_list, base_list,Acu))
+			Acu.append(round(float((len(comp_list) - erro)/len(comp_list)), 4))
+		Pares.append(par(comp_list, base_list,Acu))
 	list_acu=[]
 	for p in Pares:
 		list_acu.append(p.acu)                    # lista de listas 
@@ -102,40 +101,68 @@ def main() -> None:
 				df = pd.read_csv("bezdekIris.data", header=None)
 				df.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
 				X = df[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
+				
+				pr = pd.read_csv("vetores_pairs.csv", header=None)
+				pr.columns = ["Par","Base_index","Teste_index"]
+				#P =pr[ ["Par","Base_index","Teste_index"]].to_numpy()
+				
+				
 				Novo=[0,0,0,0]#Objeto a ser classificado
 				suposi=[]#Todas as classes de k
 				dist_suposi=[]
 
 
-				Novo[0]=input("\nsepal_length:")
-				Novo[1]=input("\nsepal_width:")
-				Novo[2]=input("\npetal_length:")
-				Novo[3]=input("\npetal_width:")
+				Novo[0]=float(input("\nsepal_length:"))
+				Novo[1]=float(input("\nsepal_width:"))
+				Novo[2]=float(input("\npetal_length:"))
+				Novo[3]=float(input("\npetal_width:"))
 				
 				key=input("\nVizinhos proximos a se considerar:")
 				if (int(key)>acur):
 					Treino(int(key), 100)
 				idx=[]
-				coluna = pres.iloc[: ,(k-1)].tolist()
-				coluna[0]=0
+				coluna = pres.iloc[: ,(int(key))].tolist()
 				print(coluna)
 				for i in range(int(len(coluna))):
 					coluna[i]=float(coluna[i])
+				
+				f=float(max(coluna))
 				for i in range(int(len(coluna))):
-					if float(max(coluna ))==float(coluna[i]):
-						idx=al.B[i] #index do modelo
-				  
+					if f==float(coluna[i]):
+						idx=pr.loc[i+1, "Base_index"] #index do modelo
+						
+				# Remove colchetes
+				idx =idx.strip("[]")
 
-				for i in idx:#distancia de novo para todos os vetores do modelo
-					d= np.linalg.norm(Novo - X[idx])
+				# Divide pelos números separados por vírgula
+				idx = idx.split(",")
+
+				# Remove espaços extras
+				idx = [i.strip() for i in idx]
+
+				for i in range(len(idx)):#distancia de novo para todos os vetores do modelo
+					d= np.linalg.norm(Novo - X[int(idx[i])])
 					dist_suposi.append(float(d))
 				
 				for i in range(int(key)):
-					if float(min(dist_suposi))==float(dist_suposi[i]):
-						suposi.append(df.loc[int(i), "class"])
-						dist_suposi[i]=10
+					dsup=dist_suposi.copy()
+					for o in range(int(len(dist_suposi))):
+						
+						if float(min(dsup))==float(dsup[o]):
+							print(df.loc[int(idx[i]), "class"])
+							suposi.append(df.loc[int(o), "class"])
+							dsup[int(idx[i])]=10
 						
 				print(statistics.mode(suposi))
+
+				k = int(key)
+				indices_k = np.argsort(dist_suposi)[:k]
+
+				# Obtenha as classes dos vizinhos
+				sup = [df.loc[int(idx[i]), "class"] for i in indices_k]
+
+				# Imprimir a classe mais votada
+				print(statistics.mode(sup))
 
 				break
 				
