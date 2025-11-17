@@ -1,8 +1,9 @@
 import pandas as pd
 import aleat as al
-#import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
 import numpy as np
-import statistics
+import statistics]
+from scipy.stats import skew, kurtosis
 
 class par:
     def __init__(self, comp, teste,acu):
@@ -12,21 +13,19 @@ class par:
 #PRECISO FAZER AS MEDIDAS SEPARADAS PARA CADA K
 Pares=[] #Todos os pares de vetores
 
-def Treino(a : int ,b : int):
+def Treino(a : int ,b : int, dl : pd.DataFrame):
 	k=a
 	r=b
-	# Lê o arquivo (ajuste o nome conforme o seu)
-	df = pd.read_csv("bezdekIris.data", header=None)
 
 	# Adiciona nomes às colunas
-	df.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
+	dl.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
 
 	# Remove linhas vazias (às vezes há uma no final)
-	df = df.dropna()
+	dl = dl.dropna()
 
-	al.aleatorio(len(df)-1, r)
+	al.aleatorio(len(dl)-1, r)
 
-	X = df[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
+	X = dl[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
 	for pair_idx in range(int(r)):
 		# C e B sao matrizes "Pares",cada C[i] teste existe um B[i] comparação
 		Acu=[] #Todas as porcentagens de acertos por pares de vetores
@@ -40,7 +39,7 @@ def Treino(a : int ,b : int):
 			for idx_c in range(len(comp_list)):
 				distances = []
 				supos=[] #SUPOSIÇÃO BASEADA NA MAIS PROXIMA
-				real=df.loc[int(comp_list[idx_c]), "class"] #CLASSE REAL DO ITEM C[IDX_C]
+				real=dl.loc[int(comp_list[idx_c]), "class"] #CLASSE REAL DO ITEM C[IDX_C]
 							
 				for idx_b in range(len(base_list)):
 					# distância euclidiana entre as features
@@ -52,7 +51,7 @@ def Treino(a : int ,b : int):
 					for n in range(int(w)+1):
 						for i in range(int(len(distances))):
 							if float(min(distances))==float(distances[i]):
-								supos.append(df.loc[int(i), "class"])
+								supos.append(dl.loc[int(i), "class"])
 								distances[i]=10
 					#try:
 					mode= statistics.mode(supos)
@@ -82,44 +81,43 @@ def Treino(a : int ,b : int):
 
 
 def main() -> None:
+	
 	pres = pd.read_csv("precision_pairs.csv", index_col="Par")
 	acur=len(pres.columns)
-    
+	
+	df = pd.read_csv("bezdekIris.data", header=None)
+	df.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
+	
+	X = df[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
+	print(df)
+	
+	pr = pd.read_csv("vetores_pairs.csv", header=None)
+	pr.columns = ["Par","Base_index","Teste_index"]
 
 	menu="x"
         
 	while menu !="s":
 		k=acur
-		menu=input("\ndigite\n\nT-Treino\nC-Classificacao\nS-Sair\nOpcao: ")
+		menu=input("\ndigite\n\nT-Treino\nC-Classificacao\nD-Analise dos dados\nR-Analise dos resultados\nS-Sair\nOpcao: ")
 		match menu:
 			case "t":
 				k=input("Digite o número de vizinhos a serem considerados: ")
 				r=input("Digite o número de vetores aleatórios a serem gerados: ")
-				Treino(k,r)
+				Treino(k,r,df)
 				
 			case "c":
-				df = pd.read_csv("bezdekIris.data", header=None)
-				df.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
-				X = df[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
-				
-				pr = pd.read_csv("vetores_pairs.csv", header=None)
-				pr.columns = ["Par","Base_index","Teste_index"]
-				#P =pr[ ["Par","Base_index","Teste_index"]].to_numpy()
-				
-				
-				Novo=[0,0,0,0]#Objeto a ser classificado
+				Novo=[]#Objeto a ser classificado
 				suposi=[]#Todas as classes de k
 				dist_suposi=[]
 
-
-				Novo[0]=float(input("\nsepal_length:"))
-				Novo[1]=float(input("\nsepal_width:"))
-				Novo[2]=float(input("\npetal_length:"))
-				Novo[3]=float(input("\npetal_width:"))
-				
+				for i in df.columns:
+					if i != "class":
+						n=int(input("\n"+ str(i) + ":"))
+						Novo.append(n)
+						
 				key=input("\nVizinhos proximos a se considerar:")
 				if (int(key)>acur):
-					Treino(int(key), 100)
+					Treino(int(key), 100, df)
 				idx=[]
 				coluna = pres.iloc[: ,(int(key))].tolist()
 				print(coluna)
@@ -144,17 +142,7 @@ def main() -> None:
 					d= np.linalg.norm(Novo - X[int(idx[i])])
 					dist_suposi.append(float(d))
 				
-				for i in range(int(key)):
-					dsup=dist_suposi.copy()
-					for o in range(int(len(dist_suposi))):
-						
-						if float(min(dsup))==float(dsup[o]):
-							print(df.loc[int(idx[i]), "class"])
-							suposi.append(df.loc[int(o), "class"])
-							dsup[int(idx[i])]=10
-						
-				print(statistics.mode(suposi))
-
+				
 				k = int(key)
 				indices_k = np.argsort(dist_suposi)[:k]
 
@@ -162,9 +150,44 @@ def main() -> None:
 				sup = [df.loc[int(idx[i]), "class"] for i in indices_k]
 
 				# Imprimir a classe mais votada
-				print(statistics.mode(sup))
+				print("\nEsse objeto pertence a classe :" + str(statistics.mode(sup)))
+			
+			case "d":
+				#os valores a seguir sao para cada atributo
+				linhas = [
+					'Media',
+					'Mediana',
+					'Variancia',
+					'Desvio padrao',
+					'Desvio medio absoluto',
+					'Desvio mediano absoluto',
+					'Obliquidade',
+					'Curtose'
+				]
 
-				break
+				Val = pd.DataFrame(index=linhas, columns=df.columns)
+				print(Val)
+								
+				print(df['col'].mean())
+				print(df['col'].var())
+				print(skew(df['col']))
+				print(kurtosis(df['col']))
+
+				#os valores a seguir sao por objetos
+				covariancia
+				
+			case "r":
+				x = [1,2,3,4,5]
+				y = [2,3,5,7,11]
+
+				plt.figure(figsize=(8,4))
+				plt.plot(x, y, marker='o', label="Crescimento")
+				plt.title("Gráfico de Linha")
+				plt.xlabel("X")
+				plt.ylabel("Y")
+				plt.grid(True)
+				plt.legend()
+				plt.show()
 				
 			case "s":
 				break
