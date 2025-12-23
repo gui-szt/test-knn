@@ -42,6 +42,7 @@ def Treino(a: int, b: int, dl: pd.DataFrame):
             erro = 0
 
             for idx_c in comp_list:
+                print(f"Processando par {pair_idx + 1}, K={w + 1}, elemento de teste {idx_c}...")
                 distances = []
                 real = dl.loc[int(idx_c), "class"]
 
@@ -65,7 +66,7 @@ def Treino(a: int, b: int, dl: pd.DataFrame):
                 except:
                     mode = statistics.multimode(supos)[0]
 
-                if mode != real:
+                if mode == real:
                     erro += 1
 
             # Acurácia do par para este K
@@ -98,7 +99,8 @@ def main() -> None:
 
     try:
         pres = pd.read_csv("precision_pairs.csv", index_col="Par")
-        acur = len(pres.columns)
+        acur = len(pres.columns) - 1
+        print(acur)
     except:
         print("\nAinda não existe arquivo de treino. Execute o treino primeiro.\n")
         acur = 0
@@ -183,10 +185,13 @@ def main() -> None:
                 if key > acur:
                     Treino(key, 15, df)
 
-                coluna = pres.iloc[:, key-1].tolist()
+                #selecionar o par com maior acurácia para o k escolhido
+                coluna = pres.iloc[:, key].tolist()
                 coluna = [float(c) for c in coluna]
+                print("\n {coluna}\n")
 
                 f = max(coluna)
+
                 idx = pr.loc[coluna.index(f) + 1, "Base_index"]
 
                 idx = idx.strip("[]").split(",")
@@ -196,25 +201,59 @@ def main() -> None:
                     d = np.linalg.norm(Novo - X[int(idx[i])])
                     dist_suposi.append(float(d))
 
-                indices_k = np.argsort(dist_suposi)[:key]
-                sup = [df.loc[int(idx[i]), "class"] for i in indices_k]
+                #lista das distancias dos k vizinhos mais próximos do novo objeto
+                sup=[]
+                for i in range(int(key)):
+                    pos=dist_suposi.index(min(dist_suposi))#index da menor distância
+                    sup.append(df.loc[int(idx[pos]), "class"])#guardar a suposição
+                    dist_suposi[pos]=float('inf')# marcar como já usado
 
                 print("\nClasse estimada:", statistics.mode(sup))
 
             case "r":
-                x = [1,2,3,4,5]
-                y = [2,3,5,7,11]
+                medias=[]
+                variancias=[]
+                desviom=[]
+                p=0
+                while p < acur:
+                    col=pres.iloc[:,p+1].tolist()
+                    col=[float(c) for c in col]
+                    col=np.array(col)
+                    medias.append(round(statistics.mean(col),4))
+                    variancias.append(round(statistics.variance(col),4))
+                    desviom.append((abs(col - col.mean())).mean())
+                    p+=1
+                x = [i+1 for i in range(acur)]
 
-                plt.figure(figsize=(8,4))
-                plt.plot(x, y, marker='o', label="Crescimento")
-                plt.title("Gráfico de Linha")
-                plt.xlabel("X")
-                plt.ylabel("Y")
-                plt.grid(True)
-                plt.legend()
+                fig, axs = plt.subplots(1, 3, figsize=(12, 4))
+
+                axs[0].scatter(x, medias)
+                axs[0].set_title("Médias")
+                axs[0].set_xticks(x)
+
+                for xi, yi in zip(x, medias):
+                    axs[0].text(xi, yi, f"{yi:.4f}", ha='center', va='bottom', fontsize=7)
+
+                axs[1].scatter(x, variancias)
+                axs[1].set_title("Variâncias")
+                axs[1].set_xticks(x)
+
+                for xi, yi in zip(x, variancias):
+                    axs[1].text(xi, yi, f"{yi:.4f}", ha='center', va='bottom', fontsize=7)
+
+                axs[2].scatter(x, desviom)
+                axs[2].set_title("Desvio Médio Absoluto")
+                axs[2].set_xticks(x)
+
+                for xi, yi in zip(x, desviom):
+                    axs[2].text(xi, yi, f"{yi:.4f}", ha='center', va='bottom', fontsize=7)
+
+                plt.tight_layout()
                 plt.show()
 
+
             case "s":
+                menu = "s"
                 break
 
             case _:

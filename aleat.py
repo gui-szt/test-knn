@@ -8,7 +8,7 @@ def aleatorio (p : int, r : int):
     u=int(r)
 
 
-    com=int((3*a +(4- (a%4)))/4)
+    com=a*(7/10)
     tes=a - com
     A=[]
     for i in range(int (a)):
