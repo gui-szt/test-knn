@@ -14,42 +14,48 @@ class par:
 
 Pares = []  # Todos os pares de vetores
 
-def Treino(a: int, b: int, dl: pd.DataFrame):
+def MinMax(a: pd.DataFrame):
+    df_norm = a.copy()
+
+    for col in df_norm.columns:
+        if col != "class" and pd.api.types.is_numeric_dtype(df_norm[col]):
+            min_x = df_norm[col].min()
+            max_x = df_norm[col].max()
+            if min_x != max_x:
+                df_norm[col] = (df_norm[col] - min_x) / (max_x - min_x)
+
+    return df_norm
+
+def Treino(a: int, b: int, dl: pd.DataFrame, X: np.ndarray ) :
     global Pares
     Pares = []
 
     k = a
     r = b
 
-    # Adiciona nomes às colunas
-    dl.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
-
-    # Remove linhas vazias
-    dl = dl.dropna()
-
     #Alaeatoriza os pares
-    al.aleatorio(len(dl) - 1, r)
-
-    X = dl[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
+    B,C=al.aleatorio(len(dl) - 1, r)
 
     for pair_idx in range(int(r)):
         Acu = []
-        comp_list = al.C[pair_idx]
-        base_list = al.B[pair_idx]
+        comp_list = B[pair_idx]
+        base_list = C[pair_idx]
+        print(f"\nTreinando par {pair_idx + 1}...")
 
         for w in range(int(k)):  # K vizinhos
 
             erro = 0
 
-            for idx_c in comp_list:
-                print(f"Processando par {pair_idx + 1}, K={w + 1}, elemento de teste {idx_c}...")
+            for idx_c in base_list:
+               
                 distances = []
                 real = dl.loc[int(idx_c), "class"]
 
                 # calcular distâncias
-                for idx_b in range(len(base_list)):
+                for idx_b in comp_list:
                     d = np.linalg.norm(X[idx_c] - X[idx_b])
                     distances.append(float(d))
+                    
 
                 # extrair w+1 vizinhos mais próximos
                 supos = []
@@ -57,7 +63,7 @@ def Treino(a: int, b: int, dl: pd.DataFrame):
 
                 for n in range(int(w) + 1):
                     pos = dist_tmp.index(min(dist_tmp))#index da menor distância
-                    supos.append(dl.loc[base_list[pos], "class"])#guardar a suposição
+                    supos.append(dl.loc[comp_list[pos], "class"])#guardar a suposição
                     dist_tmp[pos] = float('inf')# marcar como já usado
 
                 # moda seguro
@@ -70,7 +76,7 @@ def Treino(a: int, b: int, dl: pd.DataFrame):
                     erro += 1
 
             # Acurácia do par para este K
-            Acu.append(round(float(erro / len(comp_list)), 4))
+            Acu.append(round(float(erro / len(base_list)), 4))
 
         Pares.append(par(comp_list, base_list, Acu))
 
@@ -93,9 +99,37 @@ def Treino(a: int, b: int, dl: pd.DataFrame):
 
 def main() -> None:
 
-    df = pd.read_csv("bezdekIris.data", header=None)
-    df.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
-    X = df[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
+    
+    #df = pd.read_csv("bezdekIris.data", header=None)
+   # df.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
+   # X = df[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
+    df = pd.read_csv("data.csv", header=None)
+    df = df.iloc[:, :-1]#elimina a coluna vazia no final do arquivo original
+
+    df.columns = [
+        "id", "class",
+        "radius_mean", "texture_mean", "perimeter_mean", "area_mean",
+        "smoothness_mean", "compactness_mean", "concavity_mean",
+        "concave_points_mean", "symmetry_mean", "fractal_dimension_mean",
+        "radius_se", "texture_se", "perimeter_se", "area_se",
+        "smoothness_se", "compactness_se", "concavity_se",
+        "concave_points_se", "symmetry_se", "fractal_dimension_se",
+        "radius_worst", "texture_worst", "perimeter_worst", "area_worst",
+        "smoothness_worst", "compactness_worst", "concavity_worst",
+        "concave_points_worst", "symmetry_worst", "fractal_dimension_worst"
+    ]
+    df["class"] = df["class"].astype("category")
+    for col in df.columns:
+        if col != "class":
+            df[col] = pd.to_numeric(df[col], errors="coerce")
+
+    X = df[["radius_mean","texture_mean","perimeter_mean","area_mean","smoothness_mean","compactness_mean","concavity_mean","concave_points_mean","symmetry_mean","fractal_dimension_mean","radius_se","texture_se","perimeter_se","area_se","smoothness_se","compactness_se","concavity_se","concave_points_se","symmetry_se","fractal_dimension_se","radius_worst","texture_worst","perimeter_worst","area_worst","smoothness_worst","compactness_worst","concavity_worst","concave_points_worst","symmetry_worst","fractal_dimension_worst"]].to_numpy()
+    df = df.drop(columns=['id'])
+
+    dl=df.copy()#Copia do original para analise estatistica
+    df=MinMax(df)#Normaliza os dados
+    df.to_csv("df.csv", index_label="Dados")
+    
 
     try:
         pres = pd.read_csv("precision_pairs.csv", index_col="Par")
@@ -111,6 +145,7 @@ def main() -> None:
     except:
         print("\nAviso: arquivo vetores_pairs.csv não encontrado.\n")
         pr = None
+
 
     menu = "x"
 
@@ -131,11 +166,11 @@ def main() -> None:
                 ]
 
                 # Selecionar apenas colunas numéricas
-                numeric_cols = df.select_dtypes(include=np.number).columns
+                numeric_cols = [c for c in df.columns if c != "class"]
                 Val = pd.DataFrame(index=linhas, columns=numeric_cols)
 
                 for col in numeric_cols:
-                    col_values = df[col]
+                    col_values = dl[col]
                     Val.loc['Media', col] = col_values.mean()
                     Val.loc['Mediana', col] = col_values.median()
                     Val.loc['Variancia', col] = col_values.var()
@@ -147,29 +182,58 @@ def main() -> None:
 
                 print("\nTabela completa das estatísticas:")
                 print(Val)
-                Val=Val.astype(float)
 
-                for i in numeric_cols:
-                    fig, axs = plt.subplots(8, 8, figsize=(10, 7))
+                #COVARIANCIA
+                print("\nMatriz de Covariancia:")
+                cov_matrix = dl[numeric_cols].cov()     
+                print(cov_matrix)
 
-                    axs[0, 0].scatter(Val.iloc[i], y_main)
-                    axs[0, 0].set_title("main")
-                    axs[0, 0].grid(True)
+                #CCORRELACAO
+                print("\nMatriz de Correlaçao:")
+                corr_matrix = dl[numeric_cols].corr()     
+                print(corr_matrix)
 
-                    # Ajuste de layout
-                    plt.tight_layout()
-                    plt.title(i)
-                    plt.show()
+                #GRAFICOS DE DISTRIBUIÇÃO por classe
+                classes = dl["class"].unique()
+                cols = [c for c in dl.columns if c != "class"]
+                n = len(cols)
+
+                rows = int(np.ceil(n / 4))
+                fig, axs = plt.subplots(rows, 4, figsize=(20, 5 * rows))
+                axs = axs.flatten()
+
+                # cores automáticas (uma cor por classe)
+                cmap = plt.cm.tab10
+                cores = {classe: cmap(i / max(len(classes)-1, 1)) for i, classe in enumerate(classes)}
+
+                for c in classes:
+                    objetos= dl[dl["class"] == c]
+                    i = list(range(len(objetos)))
+
+                    for j, col in enumerate(cols):
+                        col = objetos.columns[j]  # pega o nome da coluna
+                        axs[j].plot(i, objetos[col].tolist(), label=c, color=cores[c])  # label = classe
+                        axs[j].set_title(col)              
+                handles, labels = axs[0].get_legend_handles_labels()
+                fig.legend(handles, labels, loc="upper right")
+
+                plt.show()
+
+                #GRAFICOS DE RELAÇAO
+                pd.plotting.scatter_matrix(
+                    dl[cols],
+                    figsize=(18, 18),
+                    diagonal="hist"
+                )
+
+                plt.show()
 
             case "t":
                 k = int(input("Digite o número de vizinhos: "))
                 r = int(input("Digite o número de pares: "))
-                Treino(k, r, df)
+                Treino(k, r, df, X)
 
             case "c":
-                if acur == 0:
-                    print("\nTreine primeiro.\n")
-                    continue
 
                 Novo = []
                 dist_suposi = []
@@ -178,79 +242,59 @@ def main() -> None:
                     if i != "class":
                         n = float(input(f"\n{i}: "))
                         Novo.append(n)
-
+                
+                #NORMALIZAR O NOVO VETOR
+                copy_dl=dl.copy()
+                copy_dl.loc[len(copy_dl)] = Novo + [""] #adicionar o novo vetor ao dataframe original   
+                copy_dl=MinMax(copy_dl)
+                Novo=copy_dl.iloc[-1, :-1].tolist() #obter o vetor normalizado
                 Novo = np.array(Novo)
+                print("\nVetor normalizado:", Novo)
+                medi=[]
+                for k in range(acur+1):
+                    colu = pres.iloc[:, k ].tolist()
+                    media=0
+                    for i in colu:
+                        media+=float(i)
+                    medi.append(round(float(media/len(colu)),4))
 
-                key = int(input("\nk vizinhos a considerar: "))
-                if key > acur:
-                    Treino(key, 15, df)
-
+                key = medi.index(max(medi)) + 1  #k escolhido baseado na posiçao da maior acurácia média
+                print(key)
                 #selecionar o par com maior acurácia para o k escolhido
-                coluna = pres.iloc[:, key].tolist()
-                coluna = [float(c) for c in coluna]
-                print("\n {coluna}\n")
 
-                f = max(coluna)
+                for i in df.index:
+                    d = np.linalg.norm(Novo - X[i])
+                    print(X[i])
+                    print(f"Distancia do novo objeto ao elemento {i}: {d}")
 
-                idx = pr.loc[coluna.index(f) + 1, "Base_index"]
-
-                idx = idx.strip("[]").split(",")
-                idx = [i.strip() for i in idx]
-
-                for i in range(len(idx)):
-                    d = np.linalg.norm(Novo - X[int(idx[i])])
                     dist_suposi.append(float(d))
 
                 #lista das distancias dos k vizinhos mais próximos do novo objeto
                 sup=[]
                 for i in range(int(key)):
                     pos=dist_suposi.index(min(dist_suposi))#index da menor distância
-                    sup.append(df.loc[int(idx[pos]), "class"])#guardar a suposição
+                    sup.append(df.loc[int(pos), "class"])#guardar a suposição
                     dist_suposi[pos]=float('inf')# marcar como já usado
 
                 print("\nClasse estimada:", statistics.mode(sup))
 
             case "r":
-                medias=[]
-                variancias=[]
-                desviom=[]
-                p=0
-                while p < acur:
-                    col=pres.iloc[:,p+1].tolist()
-                    col=[float(c) for c in col]
-                    col=np.array(col)
-                    medias.append(round(statistics.mean(col),4))
-                    variancias.append(round(statistics.variance(col),4))
-                    desviom.append((abs(col - col.mean())).mean())
-                    p+=1
-                x = [i+1 for i in range(acur)]
+                #Analisar as precisoes para k vizinhos proximos
+                medias = []
+                for key in range(acur+1):
+                    coluna = pres.iloc[:, key ].tolist()
+                    media=0
+                    for i in coluna:
+                        media+=float(i)
+                    medias.append(round(float(media/len(coluna)),4))
+                    print(f"\nPrecisão média para k={key + 1}: {medias[key]}")
+                
+                plt.plot(range(1, acur + 2), medias,'o')
+                for i_x, i_y in zip(range(1, acur + 2), medias):
+                    plt.text(i_x, i_y, '({}, {})'.format(i_x, i_y), ha='center', va='top')
 
-                fig, axs = plt.subplots(1, 3, figsize=(12, 4))
-
-                axs[0].scatter(x, medias)
-                axs[0].set_title("Médias")
-                axs[0].set_xticks(x)
-
-                for xi, yi in zip(x, medias):
-                    axs[0].text(xi, yi, f"{yi:.4f}", ha='center', va='bottom', fontsize=7)
-
-                axs[1].scatter(x, variancias)
-                axs[1].set_title("Variâncias")
-                axs[1].set_xticks(x)
-
-                for xi, yi in zip(x, variancias):
-                    axs[1].text(xi, yi, f"{yi:.4f}", ha='center', va='bottom', fontsize=7)
-
-                axs[2].scatter(x, desviom)
-                axs[2].set_title("Desvio Médio Absoluto")
-                axs[2].set_xticks(x)
-
-                for xi, yi in zip(x, desviom):
-                    axs[2].text(xi, yi, f"{yi:.4f}", ha='center', va='bottom', fontsize=7)
-
-                plt.tight_layout()
                 plt.show()
-
+                
 
             case "s":
                 menu = "s"

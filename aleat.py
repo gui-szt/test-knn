@@ -1,14 +1,16 @@
 import random
 import pandas as pd
 
-B=[]  #Matrix d vetores de comparação
+B=[]  #Matrix d vetores de treino
 C=[]  #Matrix d vetores de teste
 def aleatorio (p : int, r : int):
+    B.clear()
+    C.clear()
     a=int(p) + 1
     u=int(r)
 
 
-    com=a*(7/10)
+    com=int(a*(7/10))
     tes=a - com
     A=[]
     for i in range(int (a)):
@@ -68,5 +70,6 @@ def aleatorio (p : int, r : int):
         f.write("\nVetores de teste:\n")
         for i in range(u):
             f.write("Teste"+ str(i+1) + ":" + str(C[i]) + "\n")
+    return B,C
 
 
