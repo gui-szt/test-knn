@@ -35,16 +35,30 @@ def Treino(a: int, b: int, dl: pd.DataFrame, X: np.ndarray ) :
 
     #Alaeatoriza os pares
     B,C=al.aleatorio(len(dl) - 1, r)
+    classes = dl["class"].unique()
 
     for pair_idx in range(int(r)):
         Acu = []
         comp_list = B[pair_idx]
         base_list = C[pair_idx]
         print(f"\nTreinando par {pair_idx + 1}...")
-
+        
         for w in range(int(k)):  # K vizinhos
 
-            erro = 0
+            metrics = {
+                c: {
+                    "VP": 0,
+                    "FP": 0,
+                    "FN": 0,
+                    "VN": 0,
+                    "accuracy": 0.0,
+                    "precision": 0.0,
+                    "recall": 0.0,
+                    "f1": 0.0
+                }
+                for c in classes
+            } #VAriaveis da matrix de confusão para calcular precisão, revocação e f1-score
+
 
             for idx_c in base_list:
                
@@ -72,12 +86,40 @@ def Treino(a: int, b: int, dl: pd.DataFrame, X: np.ndarray ) :
                 except:
                     mode = statistics.multimode(supos)[0]
 
-                if mode == real:
-                    erro += 1
+                for c in metrics:
+                    if real == c and mode == c:
+                        metrics[c]["VP"] += 1
+                    elif real != c and mode == c:
+                        metrics[c]["FP"] += 1
+                    elif real == c and mode != c:
+                        metrics[c]["FN"] += 1
+                    else:
+                        metrics[c]["VN"] += 1
+            
 
-            # Acurácia do par para este K
-            Acu.append(round(float(erro / len(base_list)), 4))
+            # Calcular métricas do par para este cada classe e para esse K
+            for c in classes:
+                VP = metrics[c]["VP"]
+                FP = metrics[c]["FP"]   
+                FN = metrics[c]["FN"]
+                VN = metrics[c]["VN"]
+                total=VP + FN + FP + VN
+                metrics[c]["accuracy"] = (VP + VN) / total if total > 0 else 0
+                metrics[c]["precision"] = VP / (VP + FP) if (VP + FP) > 0 else 0
+                metrics[c]["recall"] = VP / (VP + FN) if (VP + FN) > 0 else 0
 
+                p = metrics[c]["precision"]
+                r = metrics[c]["recall"]
+                metrics[c]["f1"] = 2 * p * r / (p + r) if (p + r) > 0 else 0
+
+            # Média macro das métricas
+            macro = {
+                "precision": sum(m["precision"] for m in metrics.values()) / len(metrics),
+                "recall": sum(m["recall"] for m in metrics.values()) / len(metrics),
+                "f1": sum(m["f1"] for m in metrics.values()) / len(metrics)
+            }
+            Acu.append(round(macro["precision"], 4))  # Usar precisão como acurácia
+        
         Pares.append(par(comp_list, base_list, Acu))
 
     # Gerar tabela final
@@ -99,37 +141,43 @@ def Treino(a: int, b: int, dl: pd.DataFrame, X: np.ndarray ) :
 
 def main() -> None:
 
+    df,dl,X,opc = None,None,None,None
     
-    #df = pd.read_csv("bezdekIris.data", header=None)
-   # df.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
-   # X = df[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
-    df = pd.read_csv("data.csv", header=None)
-    df = df.iloc[:, :-1]#elimina a coluna vazia no final do arquivo original
+    match input("Escolha o conjunto de dados:\n\n1 - Iris\n2 - Breast Cancer Wisconsin\n\nOpção: "):
+        case "1":
+            df = pd.read_csv("bezdekIris.data", header=None)
+            df.columns = ["sepal_length", "sepal_width", "petal_length", "petal_width", "class"]
+            dl=df.copy()#Copia do original para analise estatistica 
+            df=MinMax(df)#Normaliza os dados
+            X = df[["sepal_length","sepal_width","petal_length","petal_width"]].to_numpy()
+        case "2":
+            df = pd.read_csv("data.csv", header=None)
+            df = df.iloc[:, :-1]#elimina a coluna vazia no final do arquivo original
 
-    df.columns = [
-        "id", "class",
-        "radius_mean", "texture_mean", "perimeter_mean", "area_mean",
-        "smoothness_mean", "compactness_mean", "concavity_mean",
-        "concave_points_mean", "symmetry_mean", "fractal_dimension_mean",
-        "radius_se", "texture_se", "perimeter_se", "area_se",
-        "smoothness_se", "compactness_se", "concavity_se",
-        "concave_points_se", "symmetry_se", "fractal_dimension_se",
-        "radius_worst", "texture_worst", "perimeter_worst", "area_worst",
-        "smoothness_worst", "compactness_worst", "concavity_worst",
-        "concave_points_worst", "symmetry_worst", "fractal_dimension_worst"
-    ]
-    df["class"] = df["class"].astype("category")
-    for col in df.columns:
-        if col != "class":
-            df[col] = pd.to_numeric(df[col], errors="coerce")
-
-    X = df[["radius_mean","texture_mean","perimeter_mean","area_mean","smoothness_mean","compactness_mean","concavity_mean","concave_points_mean","symmetry_mean","fractal_dimension_mean","radius_se","texture_se","perimeter_se","area_se","smoothness_se","compactness_se","concavity_se","concave_points_se","symmetry_se","fractal_dimension_se","radius_worst","texture_worst","perimeter_worst","area_worst","smoothness_worst","compactness_worst","concavity_worst","concave_points_worst","symmetry_worst","fractal_dimension_worst"]].to_numpy()
-    df = df.drop(columns=['id'])
-
-    dl=df.copy()#Copia do original para analise estatistica
-    df=MinMax(df)#Normaliza os dados
-    df.to_csv("df.csv", index_label="Dados")
-    
+            df.columns = [
+                "id", "class",
+                "radius_mean", "texture_mean", "perimeter_mean", "area_mean",
+                "smoothness_mean", "compactness_mean", "concavity_mean",
+                "concave_points_mean", "symmetry_mean", "fractal_dimension_mean",
+                "radius_se", "texture_se", "perimeter_se", "area_se",
+                "smoothness_se", "compactness_se", "concavity_se",
+                "concave_points_se", "symmetry_se", "fractal_dimension_se",
+                "radius_worst", "texture_worst", "perimeter_worst", "area_worst",
+                "smoothness_worst", "compactness_worst", "concavity_worst",
+                "concave_points_worst", "symmetry_worst", "fractal_dimension_worst"
+            ]
+            df["class"] = df["class"].astype("category")
+            for col in df.columns:
+                if col != "class":
+                    df[col] = pd.to_numeric(df[col], errors="coerce")
+            
+            df = df.drop(columns=['id'])
+            dl=df.copy()#Copia do original para analise estatistica 
+            df=MinMax(df)#Normaliza os dados
+            df.to_csv("df.csv", index_label="Dados")
+            X = df[["radius_mean","texture_mean","perimeter_mean","area_mean","smoothness_mean","compactness_mean","concavity_mean","concave_points_mean","symmetry_mean","fractal_dimension_mean","radius_se","texture_se","perimeter_se","area_se","smoothness_se","compactness_se","concavity_se","concave_points_se","symmetry_se","fractal_dimension_se","radius_worst","texture_worst","perimeter_worst","area_worst","smoothness_worst","compactness_worst","concavity_worst","concave_points_worst","symmetry_worst","fractal_dimension_worst"]].to_numpy()
+        case _:
+            print("Opção inválida.")        
 
     try:
         pres = pd.read_csv("precision_pairs.csv", index_col="Par")
