@@ -118,7 +118,16 @@ def Treino(a: int, b: int, dl: pd.DataFrame, X: np.ndarray ) :
                 "recall": sum(m["recall"] for m in metrics.values()) / len(metrics),
                 "f1": sum(m["f1"] for m in metrics.values()) / len(metrics)
             }
-            Acu.append(round(macro["precision"], 4))  # Usar precisão como acurácia
+            acertos = 0
+            total = 0
+
+            for c in classes:
+                acertos += metrics[c]["VP"]
+                total += metrics[c]["VP"] + metrics[c]["FN"]
+
+            acc = acertos / total if total > 0 else 0
+            Acu.append(round(acc, 4))
+
         
         Pares.append(par(comp_list, base_list, Acu))
 
@@ -128,7 +137,7 @@ def Treino(a: int, b: int, dl: pd.DataFrame, X: np.ndarray ) :
     df_acc.columns = [f"k={i+1}" for i in range(df_acc.shape[1])]
     df_acc.index = range(1, len(df_acc) + 1)
 
-    df_acc.to_csv("precision_pairs.csv", index_label="Par")
+    df_acc.to_csv("acuracy_pairs.csv", index_label="Par")
 
     with open("precisoes.txt", "w", encoding="utf-8") as f:
         f.write("PARES:\n\n")
@@ -180,7 +189,7 @@ def main() -> None:
             print("Opção inválida.")        
 
     try:
-        pres = pd.read_csv("precision_pairs.csv", index_col="Par")
+        pres = pd.read_csv("acuracy_pairs.csv", index_col="Par")
         acur = len(pres.columns) - 1
         print(acur)
     except:
@@ -242,39 +251,32 @@ def main() -> None:
                 print(corr_matrix)
 
                 #GRAFICOS DE DISTRIBUIÇÃO por classe
+
                 classes = dl["class"].unique()
                 cols = [c for c in dl.columns if c != "class"]
-                n = len(cols)
 
-                rows = int(np.ceil(n / 4))
+                rows = int(np.ceil(len(cols) / 4))
                 fig, axs = plt.subplots(rows, 4, figsize=(20, 5 * rows))
                 axs = axs.flatten()
 
-                # cores automáticas (uma cor por classe)
-                cmap = plt.cm.tab10
-                cores = {classe: cmap(i / max(len(classes)-1, 1)) for i, classe in enumerate(classes)}
+                for j, col in enumerate(cols):
+                    dados = [dl[dl["class"] == c][col] for c in classes]
+                    axs[j].boxplot(dados, labels=classes)
+                    axs[j].set_title(col)
+                    axs[j].tick_params(axis='x', rotation=45)
 
-                for c in classes:
-                    objetos= dl[dl["class"] == c]
-                    i = list(range(len(objetos)))
-
-                    for j, col in enumerate(cols):
-                        col = objetos.columns[j]  # pega o nome da coluna
-                        axs[j].plot(i, objetos[col].tolist(), label=c, color=cores[c])  # label = classe
-                        axs[j].set_title(col)              
-                handles, labels = axs[0].get_legend_handles_labels()
-                fig.legend(handles, labels, loc="upper right")
-
+                plt.tight_layout()
                 plt.show()
+
 
                 #GRAFICOS DE RELAÇAO
-                pd.plotting.scatter_matrix(
-                    dl[cols],
-                    figsize=(18, 18),
-                    diagonal="hist"
-                )
-
+                # BOXPLOT GERAL DAS VARIÁVEIS
+                plt.figure(figsize=(18, 8))
+                dl[cols].boxplot(rot=90)
+                plt.title("Distribuição das variáveis (Boxplot)")
+                plt.tight_layout()
                 plt.show()
+
 
             case "t":
                 k = int(input("Digite o número de vizinhos: "))
@@ -342,6 +344,17 @@ def main() -> None:
                     plt.text(i_x, i_y, '({}, {})'.format(i_x, i_y), ha='center', va='top')
 
                 plt.show()
+
+                # BOXPLOT DAS PRECISÕES POR k
+                dados_box = [pres.iloc[:, k].astype(float) for k in range(acur + 1)]
+
+                plt.figure(figsize=(10, 6))
+                plt.boxplot(dados_box, labels=[f"k={i+1}" for i in range(acur + 1)])
+                plt.ylabel("Precisão")
+                plt.title("Distribuição das precisões por número de vizinhos (k)")
+                plt.grid(True, axis='y')
+                plt.show()
+
                 
 
             case "s":
